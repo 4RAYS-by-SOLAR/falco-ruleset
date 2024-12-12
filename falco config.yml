@@ -1,0 +1,310 @@
+# Falco configuration/rules files for self-auditing
+- list: falco_configuration_files
+  items: [/etc/falco/falco_rules.local.yaml, /etc/falco/falco_rules.yaml, /etc/falco/falco.yaml]
+
+# Cron-related files and directories
+# T1053.003: Scheduled Task/Job: Cron
+# https://attack.mitre.org/techniques/T1053/003/
+# Modifications and file creations may indicate persistence of an adversary
+- list: cron_related_files_and_dirs
+  items: [/etc/cron.d/, /etc/cron.daily/, /etc/cron.hourly/, /etc/cron.monthly/, /etc/cron.weekly/, /etc/cron.allow, /etc/cron.deny, /etc/crontab, /etc/crontab.d/, /var/spool/cron/, /etc/at.allow, /etc/at.deny, /var/spool/at/, /etc/anacrontab, /var/spool/anacron/]
+
+# Systemd-related files
+# T1053.006: Scheduled Task/Job: Systemd Timers
+# https://attack.mitre.org/techniques/T1053/006/
+# T1543.002: Create or Modify System Process: Systemd Service
+# https://attack.mitre.org/techniques/T1543/002/
+# Modifications and file creations may indicate persistence of an adversary
+- list: systemd_related_dirs
+  items: [/etc/systemd/, /usr/lib/systemd/, /lib/systemd/]
+
+# Kernel modules-related config files and dirs
+# T1547.006: Boot or Logon Autostart Execution: Kernel Modules and Extensions
+# https://attack.mitre.org/techniques/T1547/006/
+- list: kernel_modules_related_dirs
+  items: [/etc/modprobe.conf, /etc/modprobe.d/, /lib/modules-load.d/, /usr/lib/modules-load.d/, /usr/local/lib/modules-load.d/, /etc/modules-load.d/, /run/modules-load.d/]
+
+# Init persist via RC scripts
+# T1037.004: Boot or Logon Initialization Scripts: RC Scripts
+# https://attack.mitre.org/techniques/T1037/004/
+- list: rc_scripts_related_files_and_dirs
+  items: [/etc/inittab, /etc/init.d/, /etc/init/, /etc/rc.d/, /etc/rc.local, /etc/rc.common]
+
+# Shell configuration modification
+# T1546.004: Event Triggered Execution: Unix Shell Configuration Modification
+# https://attack.mitre.org/techniques/T1546/004/
+- list: shell_configuration_related_files_and_dirs
+  items: [/etc/profile.d/, /etc/profile, /etc/shells, /etc/bashrc]
+
+# Dynamic linker hijacking
+# T1574.006: Hijack Execution Flow: Dynamic Linker Hijacking
+# https://attack.mitre.org/techniques/T1574/006/
+- list: ld_so_related_files_and_dirs
+  items: [/etc/ld.so.conf, /etc/ld.so.conf.d/, /etc/ld.so.preload]
+
+# Sudo priv esc
+# T1548.003: Abuse Elevation Control Mechanism: Sudo and Sudo Caching
+# https://attack.mitre.org/techniques/T1548/003/
+- list: sudo_related_files_and_dirs
+  items: [/etc/sudoers, /etc/sudoers.d/]
+
+# PAM modification
+# T1556.003: Modify Authentication Process: Pluggable Authentication Modules
+# https://attack.mitre.org/techniques/T1556/003/
+- list: pam_related_files_and_dirs
+  items: [/etc/pam.d/, /etc/security/limits.conf, /etc/security/pam_env.conf, /etc/security/namespace.conf, /etc/security/namespace.init, /etc/security/pwquality.conf, /etc/pam.conf, /usr/lib/security/, /lib/x86_64-linux-gnu/security/, /usr/lib64/security/]
+
+# Time related files
+- list: time_related_files
+  items: [/etc/localtime]
+
+# Login configuration and information files
+- list: login_conf_files
+  items: [/etc/login.defs, /etc/securetty, /var/log/faillog, /var/log/lastlog, /var/log/tallylog, /var/log/wtmp, /var/log/btmp]
+
+# Sysctl configuration files and dirs
+- list: sysctl_conf_files_and_dirs
+  items: [/etc/sysctl.conf, /etc/sysctl.d/, /usr/lib/sysctl.d/, /run/sysctl.d/]
+
+# Network related files
+- list: network_related_files
+  items: [/etc/hosts, /etc/resolv.conf, /etc/network/interfaces, /etc/sysconfig/network]
+
+# Other system files
+- list: other_system_files
+  items: [/etc/default/grub]
+
+# SSH configuration
+# Remote Services
+# https://attack.mitre.org/techniques/T1021/
+- list: ssh_configuration_files_and_dirs
+  items: [/etc/ssh/sshd_config, /etc/ssh/sshd_config.d/]
+
+# SSH keys
+# Root SSH keys
+# https://attack.mitre.org/techniques/T1098/004
+- list: root_ssh_keys
+  items: [/root/.ssh]
+
+# XDG Autostart Entries
+# https://attack.mitre.org/techniques/T1547/013/
+- list: xdg_systemwide
+  items: [/etc/xdg/autostart]
+
+# Password/shadow files
+- list: password_shadow_files
+  items: [/etc/group, /etc/passwd, /etc/shadow, /etc/gshadow, /etc/security/opasswd]
+
+# Critical or system files and dirs
+- list: write_create_critical_files_and_dirs
+  items: [falco_configuration_files, cron_related_files_and_dirs, systemd_related_dirs, kernel_modules_related_dirs, rc_scripts_related_files_and_dirs, shell_configuration_related_files_and_dirs, ld_so_related_files_and_dirs, sudo_related_files_and_dirs, pam_related_files_and_dirs, time_related_files, login_conf_files, sysctl_conf_files_and_dirs, ssh_configuration_files_and_dirs, password_shadow_files, root_ssh_keys, xdg_systemwide, network_related_files, other_system_files]
+
+- macro: bpfuse
+  condition: (evt.type = bpf)
+
+- macro: spawned_process
+  condition: (evt.type in (execve, execveat) and evt.dir=<)
+  
+- macro: open_write
+  condition: (evt.type in (open,openat,openat2) and evt.is_open_write=true and fd.typechar='f' and fd.num>=0)
+
+- macro: user_ssh_dir
+  condition: (fd.name contains '/.ssh/' and fd.name glob '/home/*/.ssh/*')
+
+- macro: container_nothost
+  condition: (container.id != host)
+
+- macro: user_bash_config_files
+  condition: >
+    (fd.name glob '/home/*/.bash_profile' or 
+    fd.name glob '/home/*/.bash_login' or
+    fd.name glob '/home/*/.profile' or
+    fd.name glob '/home/*/.bashrc' or
+    fd.name glob '/home/*/.bash_logout' or
+    fd.name glob '/root/.bash_profile' or 
+    fd.name glob '/root/.bash_login' or
+    fd.name glob '/root/.profile' or
+    fd.name glob '/root/.bashrc' or
+    fd.name glob '/root/.bash_logout')
+
+- macro: user_xdg_autostart
+  condition: (fd.name contains '/.config/' and fd.name glob '/home/*/.config/autostart/*')
+
+- macro: files_creation_by_extension
+  condition: >
+    (fd.filename endswith .ko or
+    fd.filename endswith .so or
+    fd.filename endswith .sh or 
+    fd.filename endswith .out or
+    fd.filename endswith .py or
+    fd.filename endswith .pl or
+    fd.filename endswith .rb or
+    fd.filename endswith .php or
+    fd.filename endswith .js or
+    fd.filename endswith .jsp or
+    fd.filename endswith .jspx or
+    fd.filename endswith .jar or
+    fd.filename endswith .aspx or
+    fd.filename endswith .asp or
+    fd.filename endswith .asmx or
+    fd.filename endswith .html or
+    fd.filename endswith .kirbi or
+    fd.filename glob "*.so.*") 
+
+- macro: user_systemd
+  condition: fd.name glob '/home/*/.config/systemd/*'
+
+- macro: inbound
+  condition: >
+    (((evt.type in (accept,listen) and evt.dir=<) or
+      (evt.type in (recvfrom,recvmsg) and evt.dir=< and
+       fd.l4proto != tcp and fd.connected=false and fd.name_changed=true)) and
+     (fd.typechar = 4 or fd.typechar = 6) and
+     (fd.ip != "0.0.0.0" and fd.net != "127.0.0.0/8") and
+     (evt.rawres >= 0 or evt.res = EINPROGRESS))
+
+- macro: outbound
+  condition: >
+    (((evt.type = connect and evt.dir=<) or
+      (evt.type in (sendto,sendmsg) and evt.dir=< and
+       fd.l4proto != tcp and fd.connected=false and fd.name_changed=true)) and
+     (fd.typechar = 4 or fd.typechar = 6) and
+     (fd.ip != "0.0.0.0" and fd.net != "127.0.0.0/8") and
+     (evt.rawres >= 0 or evt.res = EINPROGRESS))
+
+- rule: Process started - generic_user_execution
+  desc: Generic rule for audit processes started by authenticated users
+  condition: spawned_process and user.loginuid != -1
+  enabled: true
+  output: "Process started (%evt.type %user.name %user.uid %user.loginuid %user.loginname %container.id %container.name %container.image %container.image.id %container.privileged %container.mounts  %thread.cap_effective %k8s.pod.name %proc.aexepath[2] %proc.aexepath[3] %proc.aexepath[4] %proc.aexepath[5] %proc.apid[2] %proc.apid[3] %proc.apid[4] %proc.apid[5] %proc.duration %proc.sid %proc.tty %proc.cwd %proc.pid %proc.exepath %proc.exe %proc.name %proc.cmdline %proc.ppid %proc.pexepath         %proc.pexe %proc.pname %proc.pcmdline %proc.env[PATH])"
+  priority: INFO
+  tags: [eventid_1, proc_execution, generic_user_execution, 4rays]
+
+
+- rule: Outbound TCP connection
+  desc: Generic rule for outbound TCP connections
+  condition: outbound and fd.l4proto=tcp
+  enabled: true
+  output: "Outbound TCP connection (%evt.type %user.name %user.uid %user.loginuid %user.loginname %container.id %container.name %container.image %container.image.id %container.privileged %proc.aexepath[2] %proc.aexepath[3] %proc.aexepath[4] %proc.aexepath[5] %proc.apid[2] %proc.apid[3] %proc.apid[4] %proc.apid[5] %proc.duration %proc.sid %proc.tty %proc.cwd %proc.pid %proc.exepath %proc.exe %proc.name %proc.cmdline %proc.ppid %proc.pexepath         %fd.cip %fd.cport %fd.sip %fd.sport %fd.is_server %fd.type %fd.l4proto)"
+  priority: INFO
+  tags: [eventid_3, network_connection, tcp, outbound, 4rays]
+
+# Network rule
+# Outbound UDP connection
+- rule: Outbound UDP connection
+  desc: Generic rule for outbound UDP connections
+  condition: outbound and fd.l4proto=udp
+  enabled: true
+  output: "Outbound UDP connection (%evt.type %user.name %user.uid %user.loginuid %user.loginname %container.id %container.name %container.image %container.image.id %container.privileged %proc.aexepath[2] %proc.aexepath[3] %proc.aexepath[4] %proc.aexepath[5] %proc.apid[2] %proc.apid[3] %proc.apid[4] %proc.apid[5] %proc.duration %proc.sid %proc.tty %proc.cwd %proc.pid %proc.exepath %proc.exe %proc.name %proc.cmdline %proc.ppid %proc.pexepath         %fd.cip %fd.cport %fd.sip %fd.sport %fd.is_server %fd.type %fd.l4proto)"
+  priority: INFO
+  tags: [eventid_3, network_connection, udp, outbound, 4rays]
+
+# Network rule
+# Inbound TCP connection
+- rule: Inbound TCP connection
+  desc: Generic rule for inbound TCP connections
+  condition: inbound and fd.l4proto=tcp
+  enabled: true
+  output: "Inbound TCP connection (%evt.type %user.name %user.uid %user.loginuid %user.loginname %container.id %container.name %container.image %container.image.id %container.privileged %proc.aexepath[2] %proc.aexepath[3] %proc.aexepath[4] %proc.aexepath[5] %proc.apid[2] %proc.apid[3] %proc.apid[4] %proc.apid[5] %proc.duration %proc.sid %proc.tty %proc.cwd %proc.pid %proc.exepath %proc.exe %proc.name %proc.cmdline %proc.ppid %proc.pexepath         %fd.cip %fd.cport %fd.sip %fd.sport %fd.is_server %fd.type %fd.l4proto)"
+  priority: INFO
+  tags: [eventid_3, network_connection, tcp, inbound, 4rays]
+
+# Network rule
+# Inbound UDP connection
+- rule: Inbound UDP connection
+  desc: Generic rule for inbound UDP connections
+  condition: inbound and fd.l4proto=udp
+  enabled: true
+  output: "Inbound UDP connection (%evt.type %user.name %user.uid %user.loginuid %user.loginname %container.id %container.name %container.image %container.image.id %container.privileged %proc.aexepath[2] %proc.aexepath[3] %proc.aexepath[4] %proc.aexepath[5] %proc.apid[2] %proc.apid[3] %proc.apid[4] %proc.apid[5] %proc.duration %proc.sid %proc.tty %proc.cwd %proc.pid %proc.exepath %proc.exe %proc.name %proc.cmdline %proc.ppid %proc.pexepath         %fd.cip %fd.cport %fd.sip %fd.sport %fd.is_server %fd.type %fd.l4proto)"
+  priority: INFO
+  tags: [eventid_3, network_connection, udp, inbound, 4rays]
+
+- rule: Modification of a watched file or file creation in a watched directory 
+  desc: Detect critical system files modification or file creation in a watched directory
+  condition: >
+    ((evt.type = creat or open_write) and 
+    (fd.name pmatch (write_create_critical_files_and_dirs) or 
+    files_creation_by_extension or 
+    user_ssh_dir or
+    user_xdg_autostart or
+    user_bash_config_files or
+    user_systemd or
+    fd.directory pmatch (non_critical_dirs) or 
+    fd.directory in (root_dirs)))
+  enabled: true
+  output: "File created or modified (%evt.type %user.name %user.uid %user.loginuid %user.loginname %container.id %container.name %container.image %container.image.id %container.privileged %proc.aexepath[2] %proc.aexepath[3] %proc.aexepath[4] %proc.aexepath[5] %proc.apid[2] %proc.apid[3] %proc.apid[4] %proc.apid[5] %proc.duration %proc.sid %proc.tty %proc.cwd %proc.pid %proc.exepath %proc.exe %proc.name %proc.cmdline %proc.ppid %proc.pexepath         %fd.name %evt.arg.flags %evt.res)"
+  priority: INFO
+  tags: [eventid_11, filesystem, creation, modification, 4rays]
+
+   
+- rule: LD_PRELOAD exists 
+  desc: Process started with LD_PRELOAD environment variable 
+  condition: evt.type in (execve, execveat) and proc.env[LD_PRELOAD] != "" 
+  enabled: true 
+  output: "Process started with LD_PRELOAD environment variable (%user.name %proc.env[LD_PRELOAD] %proc.pid %proc.exe %proc.exepath %proc.name %proc.cmdline %proc.exeline %proc.ppid %proc.pname %proc.pcmdline %evt.type)" 
+  priority: INFO 
+  tags: [eventid_1, proc_execution, ld_preload, 4rays]
+
+- rule: Create hardlink 
+  desc: Hardlink created 
+  condition: evt.type in (link, linkat) and (evt.abspath.src endswith wget or evt.abspath.src endswith curl) 
+  enabled: true 
+  output: Hardlink created %evt.args %evt.type %proc.name %evt.abspath.src %evt.abspath.dst 
+  priority: INFO 
+  tags: [eventid_12, hardlink, 4rays]
+
+- rule: Create symlink 
+  desc: Symlink created 
+  condition: evt.type in (symlink, symlinkat) and (fs.path.target endswith wget or fs.path.target endswith curl) 
+  enabled: true 
+  output: Symlink created %fs.path.target %evt.args %evt.type %proc.name %evt.abspath.src %evt.abspath.dst 
+  priority: INFO 
+  tags: [eventid_12, symlink, 4rays]
+
+- rule: Potential evasion with symlink 
+  desc: Potential evasion of wget or curl use via symlinks 
+  condition: evt.type in (execve, execveat) and proc.exepath in ("/usr/bin/wget", "/usr/bin/curl") and (proc.name != wget or proc.name != curl) 
+  enabled: true 
+  output: "Process started (%user.name %proc.pid %proc.exe %proc.exepath %proc.name %proc.cmdline %proc.exeline %proc.ppid %proc.pname %proc.pcmdline %evt.type)" 
+  priority: INFO 
+  tags: [eventid_1, proc_execution, 4rays]
+
+- rule: Self-deleted file 
+  desc: A process deleting its own executable 
+  condition: evt.type in (unlink, unlinkat) and proc.exepath = val(fs.path.name)
+  enabled: true 
+  output: Detected self-deleted file %evt.type %fs.path.name %proc.name %proc.exepath %proc.pname 
+  priority: INFO 
+  tags: [eventid_23, filesystem, deletion, 4rays]
+
+
+- rule: EBPF Module Load
+  desc:  EBPF Module Load
+  condition: >
+    bpfuse and evt.arg.cmd = 5 and proc.exe != "falco"
+  enabled: true
+  output: "BPF load (%evt.type %user.name %user.uid %user.loginuid %user.loginname %container.id %container.name %container.image %container.image.id %container.privileged %proc.aexepath[2] %proc.aexepath[3] %proc.aexepath[4] %proc.aexepath[5] %proc.apid[2] %proc.apid[3] %proc.apid[4] %proc.apid[5] %proc.duration %proc.sid %proc.tty %proc.cwd %proc.pid %proc.exepath %proc.exe %proc.name %proc.cmdline %proc.ppid %proc.pexepath         %fd.name %evt.arg.flags %evt.res %evt.args %evt.info %evt.arg.cmd)"
+  priority: INFO
+  tags: [eventid_34, bpf_prog_load, 4rays]
+  
+- rule: Created file in memfd
+  desc: Created file in memfd
+  condition: evt.type = "memfd_create"
+  enabled: true
+  output: "Created file in memfd (%evt.type %user.name %user.uid %user.loginuid %user.loginname %container.id %container.name %container.image %container.image.id %container.privileged %proc.aexepath[2] %proc.aexepath[3] %proc.aexepath[4] %proc.aexepath[5] %proc.apid[2] %proc.apid[3] %proc.apid[4] %proc.apid[5] %proc.duration %proc.sid %proc.tty %proc.cwd %proc.pid %proc.exepath %proc.exe %proc.name %proc.cmdline %proc.ppid %proc.pexepath %fd.name %fd.num %evt.arg.flags %evt.res)"
+  priority: INFO
+  tags: [eventid_11, filesystem, creation, modification, memfd, 4rays]
+  
+- rule: Ptrace attached to process
+  desc: Detects an attempt to inject code into a process using ptrace syscall
+  condition: >
+    evt.type=ptrace and evt.dir=> and 
+    evt.arg.request in ("PTRACE_ATTACH") and 
+    proc_name_exists
+  enabled: true
+  output: Detected ptrace PTRACE_ATTACH attempt (%evt.type %user.name %user.uid %user.loginuid %user.loginname %container.id %container.name %container.image %container.image.id %container.privileged %proc.aexepath[2] %proc.aexepath[3] %proc.aexepath[4] %proc.aexepath[5] %proc.apid[2] %proc.apid[3] %proc.apid[4] %proc.apid[5] %proc.duration %proc.sid %proc.tty %proc.cwd %proc.pid %proc.exepath %proc.exe %proc.name %proc.cmdline %proc.ppid %proc.pexepath         %evt.arg.request %evt.arg.pid)
+  tags: [eventid_10, process_injection, 4rays]
+  priority: INFO
+
+
+
